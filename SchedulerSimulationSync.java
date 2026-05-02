@@ -71,9 +71,12 @@ class SharedResources {
     
 
     public static void logExecution(String message) {
-
-
-        executionLog.add(message);
+        lock.lock();  
+        try {
+            executionLog.add(message);
+        } finally {
+            lock.unlock(); 
+        }
     }
 }
 
