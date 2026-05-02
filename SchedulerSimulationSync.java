@@ -6,6 +6,7 @@ import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock; // استردت كلاس ال ReentrantLock عشان افعل المزامنة اليدوية واحمي المتغيرات المشتركة من الريس كونديشن 
+import java.util.concurrent.Semaphore;//استوردت مكتبة السيمافور 
 // ANSI Color Codes for enhanced terminal output
 class Colors {
     public static final String RESET = "\u001B[0m";
@@ -37,7 +38,7 @@ class SharedResources {
 
     public static final ReentrantLock lock = new ReentrantLock();
     
-   
+    public static final Semaphore cpuSemaphore = new Semaphore(1);
     
    
     public static void incrementContextSwitch() {
@@ -107,6 +108,13 @@ class Process implements Runnable {
         // This ensures only allowed number of processes run simultaneously
         
         try {
+            SharedResources.cpuSemaphore.acquire();
+        } catch (InterruptedException e) {
+            System.out.println(Colors.RED + "  ✗ " + name + " was interrupted while waiting." + Colors.RESET);
+            return;
+        }
+        
+        try {
             if (startTime == -1) {
                 startTime = System.currentTimeMillis();
             }
@@ -147,7 +155,7 @@ class Process implements Runnable {
             System.out.println(Colors.YELLOW + "  ⏸ " + Colors.CYAN + name + Colors.RESET + 
                               " completed quantum " + Colors.BRIGHT_YELLOW + runTime + "ms" + Colors.RESET + 
                               " │ Overall progress: " + overallProgressBar);
-            System.out.println(Colors.MAGENTA + "     Remaining time: " + remainingTime + "ms" + Colors.RESET);
+            System.out.println(Colors.MAGENTA + "    Remaining time: " + remainingTime + "ms" + Colors.RESET);
             
             if (remainingTime > 0) {
                 System.out.println(Colors.BLUE + "  ↻ " + Colors.CYAN + name + Colors.RESET + 
@@ -168,6 +176,7 @@ class Process implements Runnable {
         } finally {
             // TODO #4: Release CPU semaphore here
             // Always release in finally block to prevent deadlocks!
+            SharedResources.cpuSemaphore.release();
         }
     }
     
@@ -188,6 +197,8 @@ class Process implements Runnable {
     public void runToCompletion() {
         // TODO: Similar synchronization needed here
         try {
+            SharedResources.cpuSemaphore.acquire();
+        try {
             System.out.println(Colors.BRIGHT_CYAN + "  ⚡ " + Colors.BOLD + Colors.CYAN + name + 
                               Colors.RESET + Colors.BRIGHT_CYAN + " is the last process, running to completion" + 
                               Colors.RESET + " [" + remainingTime + "ms]");
@@ -202,7 +213,13 @@ class Process implements Runnable {
             System.out.println(Colors.BRIGHT_GREEN + "  ✓ " + Colors.BOLD + Colors.CYAN + name + 
                               Colors.RESET + Colors.BRIGHT_GREEN + " finished execution!" + Colors.RESET);
             System.out.println();
-        } catch (InterruptedException e) {
+            
+        } 
+        finally {
+                SharedResources.cpuSemaphore.release();
+            }
+        }
+        catch (InterruptedException e) {
             System.out.println(Colors.RED + "  ✗ " + name + " was interrupted." + Colors.RESET);
         }
     }
